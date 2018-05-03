@@ -1,0 +1,4 @@
+# CLion project and CMake build files
+.idea/
+build/
+cmake-build-*/
