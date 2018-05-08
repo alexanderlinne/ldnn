@@ -1,10 +1,9 @@
 #include <iostream>
+#include <random>
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
-
-#include <range/v3/algorithm/minmax.hpp>
-#include <range/v3/view/generate.hpp>
+#include <chrono>
 
 #include "ldnn/network.hpp"
 
@@ -19,9 +18,10 @@ auto create_square(size_t count, T size, URBG&& gen)
         return classification{v,
             std::abs(v[0]) <= size / 4 && std::abs(v[1]) <= size / 4};
     };
-    return ranges::view::generate(create_example)
-        | ranges::view::take(count)
-        | ranges::to_<std::vector<classification>>();
+
+    auto result = std::vector<classification>(count);
+    util::generate(result, create_example);
+    return result;
 }
 
 template<class T>
@@ -40,7 +40,7 @@ auto show_result(ldnn::network<T> network,
         }
     }
 
-    auto [min, max] = ranges::minmax(clf);
+    auto [min, max] = util::minmax(clf);
     auto image = cv::Mat(image_size, CV_8UC1);
     for (int y : indices(image_size.height)) {
         for (int x : indices(image_size.width)) {
@@ -55,23 +55,31 @@ auto show_result(ldnn::network<T> network,
 }
 
 int main() {
+    auto start_time = std::chrono::system_clock::now();
+
     std::random_device rd;
     std::mt19937 gen(rd());
 
+    std::cout << "creating data...\r" << std::flush;
     auto examples = create_square<double>(1500, 4, gen);
 
-    std::cout << "initializing...\n";
+    std::cout << "initializing...\r" << std::flush;
     auto network = ldnn::network<double>(4, 4, 5, examples, gen);
 
     for (auto step [[maybe_unused]] : indices(10)) {
-        ranges::shuffle(examples, gen);
+        util::shuffle(examples, gen);
         network.gradient_descent(examples);
     }
 
-    std::cout << "rendering...\n";
+    std::cout << "rendering...\r" << std::flush;
     show_result(network,
         cv::Rect_<double>(-2., -2., 4., 4.),
         cv::Size(1000, 1000));
+
+    std::cout << "done! ("
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                  std::chrono::system_clock::now() - start_time).count()
+              << "ms)\n";
 
     while (cv::waitKey(0) != 'c');
 }

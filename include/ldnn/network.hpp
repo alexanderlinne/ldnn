@@ -2,12 +2,6 @@
 
 #include <type_traits>
 
-#include <range/v3/action/shuffle.hpp>
-#include <range/v3/algorithm/min_element.hpp>
-#include <range/v3/view/remove_if.hpp>
-#include <range/v3/view/take.hpp>
-#include <range/v3/view/transform.hpp>
-
 #include "ldnn/vector.hpp"
 
 namespace ldnn {
@@ -51,12 +45,17 @@ public:
         }
 
         // Initialize the network.
-        auto positives = [](bool positives) {
-            return ranges::view::remove_if([=](auto& c) { return positives ^ c.positive; })
-                | ranges::view::transform([](auto& c) { return c.vec; });
-        };
-        auto pos_ctrds = kmeans(examples | positives(true), polytope_count, gen);
-        auto neg_ctrds = kmeans(examples | positives(false), max_halfspaces, gen);
+        auto pos_examples = std::vector<vector<T>>{};
+        auto neg_examples = std::vector<vector<T>>{};
+        util::for_each(examples, [&](auto& c) {
+            if (c.positive) {
+                pos_examples.push_back(c.vec);
+            } else {
+                neg_examples.push_back(c.vec);
+            }
+        });
+        auto pos_ctrds = kmeans(pos_examples, polytope_count, gen);
+        auto neg_ctrds = kmeans(neg_examples, max_halfspaces, gen);
         for (auto i : indices(pos_ctrds.size())) {
             for (auto j : indices(neg_ctrds.size())) {
                 weight[i][j] = normalize(pos_ctrds[i] - neg_ctrds[j]);
@@ -103,7 +102,7 @@ public:
                 classification
             >>>
     void gradient_descent(Range&& rng) {
-        ranges::for_each(rng, [&](auto& c) { gradient_descent(c); });
+        util::for_each(rng, [&](auto& c) { gradient_descent(c); });
     }
 
     T quadratic_error(const classification& c) {
@@ -116,10 +115,11 @@ public:
                 typename std::decay_t<Range>::value_type,
                 classification
             >>>
-    T quadratic_error(Range&& rng) {
-        auto error = rng | ranges::view::transform(
-                             [&](auto& c) { return quadratic_error(c); });
-        return ranges::accumulate(error, T{0});
+    T quadratic_error(Range&& data) {
+        auto error = std::vector<T>{};
+        util::transform(data, std::back_inserter(error),
+            [&](auto& c) { return quadratic_error(c); });
+        return util::accumulate(error, T{0});
     }
 
 private:
@@ -127,14 +127,13 @@ private:
         return classify(c.vec) - (c.positive ? T{1} : T{0});
     }
 
-    template<class Range, class URBG>
-    static auto kmeans(Range&& rng,
+    template<class URBG>
+    static auto kmeans(std::vector<vector<T>> data,
         size_t k, URBG&& gen, size_t iterations = 100)
         -> std::vector<vector<T>>
     {
-        // Create a shuffled vector from the input range.
-        const auto data = rng | ranges::to_<std::vector<vector<T>>>()
-                              | ranges::action::shuffle(gen);
+        // Shuffle the input vector.
+        util::shuffle(data, std::forward<URBG>(gen));
 
         // There have to be at least as many data elements as the number
         // of clusters to be calculated.
@@ -142,22 +141,22 @@ private:
             throw std::invalid_argument("too many clusters for given data");
         }
 
-        auto centroids = data | ranges::view::take(k)
-                              | ranges::to_<std::vector<vector<T>>>();
+        auto centroids = std::vector<vector<T>>(k);
+        util::copy_n(data, k, begin(centroids));
 
         // Iterate
         auto clusters = std::vector<std::vector<vector<T>>>(k);
         auto add_to_nearest_cluster = [&](const auto& vec) {
-            auto dist = centroids
-                | ranges::view::transform([&](auto& c) { return distance(vec, c); })
-                | ranges::to_<std::vector<double>>();
-            clusters[util::index(dist, ranges::min_element(dist))].push_back(vec);
+            auto dist = std::vector<T>(centroids.size());
+            util::transform(centroids, begin(dist),
+                [&](auto& c) { return distance(vec, c); });
+            clusters[util::index(dist, util::min_element(dist))].push_back(vec);
         };
         while (iterations-- > 0) {
-            ranges::for_each(data, add_to_nearest_cluster);
-            ranges::transform(clusters, centroids.begin(),
+            util::for_each(data, add_to_nearest_cluster);
+            util::transform(clusters, centroids.begin(),
                 [](auto& cluster) { return centroid(cluster); });
-            ranges::for_each(clusters, [](auto& v) { v.clear(); });
+            util::for_each(clusters, [](auto& v) { v.clear(); });
         }
 
         return centroids;

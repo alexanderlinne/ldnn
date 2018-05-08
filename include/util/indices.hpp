@@ -1,15 +1,15 @@
 #pragma once
 
-#include <range/v3/view/indices.hpp>
+#include "iterator/generator.hpp"
 
 template<class T>
 auto indices(T first, T last)
 {
-    return ranges::view::indices(first, last);
+    return util::iterator::generator<T>{first, last};
 }
 
 template<class T>
 auto indices(T last)
 {
-    return ranges::view::indices(T{0}, last);
+    return util::iterator::generator<T>{T{0}, last};
 }
