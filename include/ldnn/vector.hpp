@@ -10,7 +10,7 @@
 #include <range/v3/numeric/accumulate.hpp>
 
 #include "util/algorithm.hpp"
-#include "util/range.hpp"
+#include "util/indices.hpp"
 #include "util/iterator/ostream_joiner.hpp"
 
 namespace ldnn {
@@ -59,9 +59,9 @@ namespace ldnn {
 } // namespace ldnn
 
 template<>
-auto range<ldnn::rank_t>(ldnn::rank_t last)
+auto indices<ldnn::rank_t>(ldnn::rank_t last)
 {
-    return range(last.value);
+    return indices(last.value);
 }
 
 namespace ldnn {
@@ -197,7 +197,7 @@ namespace ldnn {
                 throw std::invalid_argument{"rank differs"};
 
             auto result = vector<decltype(fn(l[0], r[0]))>{l.rank()};
-            for (auto i : range(result.rank())) {
+            for (auto i : indices(result.rank())) {
                 result[i] = fn(l[i], r[i]);
             }
 
@@ -213,7 +213,7 @@ namespace ldnn {
         if (l.rank() != r.rank())
             return false;
         auto equal = true;
-        for (auto i : range(l.rank()))
+        for (auto i : indices(l.rank()))
             equal &= l[i] == r[i];
         return equal;
     }

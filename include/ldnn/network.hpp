@@ -45,7 +45,7 @@ public:
         // Allocate memory.
         weight.resize(polytope_count);
         bias.resize(polytope_count);
-        for (auto i : range(polytope_count)) {
+        for (auto i : indices(polytope_count)) {
             weight[i].resize(max_halfspaces, vector<T>(rank));
             bias[i].resize(max_halfspaces);
         }
@@ -57,8 +57,8 @@ public:
         };
         auto pos_ctrds = kmeans(examples | positives(true), polytope_count, gen);
         auto neg_ctrds = kmeans(examples | positives(false), max_halfspaces, gen);
-        for (auto i : range(pos_ctrds.size())) {
-            for (auto j : range(neg_ctrds.size())) {
+        for (auto i : indices(pos_ctrds.size())) {
+            for (auto j : indices(neg_ctrds.size())) {
                 weight[i][j] = normalize(pos_ctrds[i] - neg_ctrds[j]);
                 bias[i][j] = weight[i][j] * (0.5 * (pos_ctrds[i] + neg_ctrds[j]));
             }
@@ -69,7 +69,7 @@ public:
         -> T
     {
         auto result = T{1};
-        for (auto i : range(polytope_count)) {
+        for (auto i : indices(polytope_count)) {
             result *= T{1} - polytope(i, v);
         }
 
@@ -77,11 +77,11 @@ public:
     }
 
     void gradient_descent(const classification& c) {
-        for (auto i : range(polytope_count)) {
-            for (auto j : range(max_halfspaces)) {
+        for (auto i : indices(polytope_count)) {
+            for (auto j : indices(max_halfspaces)) {
                 auto diff = T{2} * error(c);
 
-                for (auto r : range(polytope_count)) {
+                for (auto r : indices(polytope_count)) {
                     if (i != r) {
                         diff *= (T{1} - polytope(r, c.vec));
                     }
@@ -185,7 +185,7 @@ private:
         -> T
     {
         auto result = T{1};
-        for (auto j : range(max_halfspaces)) {
+        for (auto j : indices(max_halfspaces)) {
             result *= halfspace(i, j, v);
         }
         return result;

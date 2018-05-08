@@ -29,8 +29,8 @@ auto show_result(ldnn::network<T> network,
     cv::Rect_<T> index_space, cv::Size image_size) {
 
     auto clf = std::vector<T>(image_size.width * image_size.height);
-    for (auto y : range(image_size.height)) {
-        for (auto x : range(image_size.width)) {
+    for (auto y : indices(image_size.height)) {
+        for (auto x : indices(image_size.width)) {
             clf[x + y * image_size.width] = network.classify(
                 ldnn::vector<double>{
                     index_space.x +
@@ -42,8 +42,8 @@ auto show_result(ldnn::network<T> network,
 
     auto [min, max] = ranges::minmax(clf);
     auto image = cv::Mat(image_size, CV_8UC1);
-    for (int y : range(image_size.height)) {
-        for (int x : range(image_size.width)) {
+    for (int y : indices(image_size.height)) {
+        for (int x : indices(image_size.width)) {
             image.at<uchar>(y, x) = static_cast<uchar>(
                 255.0 * (clf[x + y * image_size.width] - min) / (max - min));
         }
@@ -63,7 +63,7 @@ int main() {
     std::cout << "initializing...\n";
     auto network = ldnn::network<double>(4, 4, 5, examples, gen);
 
-    for (auto step [[maybe_unused]] : range(10)) {
+    for (auto step [[maybe_unused]] : indices(10)) {
         ranges::shuffle(examples, gen);
         network.gradient_descent(examples);
     }
