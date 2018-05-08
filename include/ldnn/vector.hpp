@@ -79,6 +79,9 @@ namespace ldnn {
             util::fill(data, initial_value);
         }
 
+        vector(const std::vector<T>& init) : data(init) {}
+        vector(std::vector<T>&& init) : data(std::move(init)) {}
+
         vector(std::initializer_list<value_type> init)
             : data(init)
         {}
@@ -289,6 +292,45 @@ namespace ldnn {
     template<class InputRange>
     auto centroid(InputRange&& r) {
         return centroid(std::begin(r), std::end(r));
+    }
+
+    template<class T, class IdxRange,
+        class = std::enable_if_t<
+            std::is_integral_v<typename std::decay_t<IdxRange>::value_type>>
+        >
+    auto select_dimensions(const vector<T>& vec, IdxRange&& dims)
+        -> vector<T>
+    {
+        auto elems = std::vector<T>{};
+        util::transform(dims, std::back_inserter(elems),
+            [&](auto& dim) { return vec[dim]; });
+        return vector<T>{elems};
+    }
+
+    template<class T, class I>
+    auto select_dimensions(const vector<T>& vec, std::initializer_list<I> dims)
+        -> vector<T>
+    {
+        return select_dimensions(vec, std::vector(dims));
+    }
+
+    template<class T, class IdxRange,
+        class = std::enable_if_t<
+            std::is_integral_v<typename std::decay_t<IdxRange>::value_type>>
+        >
+    auto select_dimensions(const std::vector<vector<T>>& vecs, IdxRange&& dims)
+    {
+        auto result = std::vector<vector<T>>{};
+        util::transform(vecs, std::back_inserter(result),
+            [&](auto& vec) { return select_dimensions(vec, dims); });
+        return result;
+    }
+
+    template<class T, class I>
+    auto select_dimensions(const std::vector<vector<T>>& vecs,
+        std::initializer_list<I> dims)
+    {
+        return select_dimensions(vecs, std::vector(dims));
     }
 
 } // namespace ldnn
