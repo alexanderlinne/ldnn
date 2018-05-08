@@ -3,12 +3,6 @@
 #include <iosfwd>
 #include <vector>
 
-#include <range/v3/algorithm/copy.hpp>
-#include <range/v3/algorithm/fill.hpp>
-#include <range/v3/algorithm/for_each.hpp>
-#include <range/v3/algorithm/transform.hpp>
-#include <range/v3/numeric/accumulate.hpp>
-
 #include "util/algorithm.hpp"
 #include "util/indices.hpp"
 #include "util/iterator/ostream_joiner.hpp"
@@ -82,7 +76,7 @@ namespace ldnn {
 
         vector(rank_t rank, value_type initial_value) {
             data.resize(rank.value);
-            ranges::fill(data, initial_value);
+            util::fill(data, initial_value);
         }
 
         vector(std::initializer_list<value_type> init)
@@ -158,7 +152,7 @@ namespace ldnn {
         -> std::ostream&
     {
         o << "(";
-        ranges::copy(v, util::iterator::ostream_joiner<T>(std::cout, " "));
+        util::copy(v, util::iterator::ostream_joiner<T>(std::cout, " "));
         return o << ")";
     }
 
@@ -168,7 +162,7 @@ namespace ldnn {
         -> vector<T>
     {
         auto result = vector<T>{vec.rank()};
-        ranges::transform(vec, result.begin(), util::multiply_by(scale));
+        util::transform(vec, result.begin(), util::multiply_by(scale));
         return result;
     }
 
@@ -177,7 +171,7 @@ namespace ldnn {
         -> typename vector<T>::value_type
     {
         auto sum = T{0};
-        ranges::for_each(vec, [&](auto& e) { sum += util::square(e); });
+        util::for_each(vec, [&](auto& e) { sum += util::square(e); });
         return std::sqrt(sum);
     }
 
@@ -231,7 +225,7 @@ namespace ldnn {
     {
         auto _tmp = detail::vector_merge(l, r,
             [](auto a, auto b) { return a * b; });
-        return ranges::accumulate(_tmp, T{0});
+        return util::accumulate(_tmp, T{0});
     }
 
     template<class T, class U,
@@ -288,7 +282,7 @@ namespace ldnn {
         using value_type =
             typename std::iterator_traits<InputIterator>::value_type;
         auto zero = value_type{(*first).rank()};
-        return ranges::accumulate(first, last, zero)
+        return std::accumulate(first, last, zero)
             / static_cast<double>(std::distance(first, last));
     }
 

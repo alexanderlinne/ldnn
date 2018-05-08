@@ -2,13 +2,94 @@
 
 #include <algorithm>
 #include <iterator>
+#include <numeric>
+
+using std::begin;
+using std::end;
 
 namespace util {
+
+    template<class Range>
+    auto size(Range&& rng)
+    {
+        return std::distance(begin(rng), end(rng));
+    }
 
     template<class Range, class It>
     auto index(Range&& rng, It it)
     {
-        return std::distance(std::begin(rng), it);
+        return std::distance(begin(rng), it);
+    }
+
+    template<class Range, class T>
+    auto accumulate(Range&& rng, T init)
+        -> T
+    {
+        return std::accumulate(begin(rng), end(rng), init);
+    }
+
+    template<class Range, class OutputIt>
+    auto copy(Range&& rng, OutputIt d_first)
+        -> OutputIt
+    {
+        return std::copy(begin(rng), end(rng), d_first);
+    }
+
+    template<class InRange, class Size, class OutputIt>
+    auto copy_n(InRange&& in_rng, Size count, OutputIt result)
+        -> OutputIt
+    {
+        return std::copy_n(begin(in_rng), count, result);
+    }
+
+    template<class Range, class T>
+    void fill(Range&& rng, const T& value)
+    {
+        std::fill(begin(rng), end(rng), value);
+    }
+
+    template<class Range, class UnaryFunction>
+    auto for_each(Range&& rng, UnaryFunction f)
+        -> UnaryFunction
+    {
+        return std::for_each(begin(rng), end(rng), f);
+    }
+
+    template<class Range, class Generator>
+    void generate(Range&& rng, Generator g)
+    {
+        std::generate(begin(rng), end(rng), g);
+    }
+
+    template<class Range>
+    auto min_element(Range&& rng)
+    {
+        return std::min_element(begin(rng), end(rng));
+    }
+
+    template<class Range>
+    auto minmax_element(Range&& rng)
+    {
+        return std::minmax_element(begin(rng), end(rng));
+    }
+
+    template<class Range>
+    auto minmax(Range&& rng) {
+        auto [min, max] = minmax_element(std::forward<Range>(rng));
+        return std::pair{*min, *max};
+    }
+
+    template<class Range, class URBG>
+    void shuffle(Range&& rng, URBG&& g)
+    {
+        std::shuffle(begin(rng), end(rng), std::forward<URBG>(g));
+    }
+
+    template<class Range, class OutputIt, class UnaryOperation>
+    auto transform(Range&& rng, OutputIt d_first, UnaryOperation unary_op)
+        -> OutputIt
+    {
+        return std::transform(begin(rng), end(rng), d_first, unary_op);
     }
 
     // helper functions
