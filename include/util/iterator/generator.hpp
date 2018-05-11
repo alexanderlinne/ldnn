@@ -1,6 +1,7 @@
 #pragma once
 
-namespace util::iterator {
+namespace util {
+namespace iterator {
 
     template<class T>
     struct generator {
@@ -68,4 +69,5 @@ namespace util::iterator {
         }
     };
 
-} // namespace util::iterator
+} // namespace iterator
+} // namespace util

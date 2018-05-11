@@ -62,7 +62,8 @@ namespace ldnn {
 
     template<class T = double>
     struct vector {
-        static_assert(std::is_floating_point_v<T>);
+        static_assert(std::is_floating_point<T>::value,
+            "T has to be a floating-point type");
 
         using value_type = T;
         using reference = T&;
@@ -160,7 +161,7 @@ namespace ldnn {
     }
 
     template<class T, class U,
-        class = std::enable_if_t<std::is_arithmetic_v<U>>>
+        class = typename std::enable_if<std::is_arithmetic<U>::value>::type>
     auto scale(const vector<T>& vec, U scale)
         -> vector<T>
     {
@@ -232,7 +233,7 @@ namespace ldnn {
     }
 
     template<class T, class U,
-        class = std::enable_if_t<std::is_arithmetic_v<U>>>
+        class = typename std::enable_if<std::is_arithmetic<U>::value>::type>
     auto operator*(const vector<T>& l, U r)
         -> vector<T>
     {
@@ -240,7 +241,7 @@ namespace ldnn {
     }
 
     template<class T, class U,
-        class = std::enable_if_t<std::is_arithmetic_v<U>>>
+        class = typename std::enable_if<std::is_arithmetic<U>::value>::type>
     auto operator*(U r, const vector<T>& l)
         -> vector<T>
     {
@@ -248,7 +249,7 @@ namespace ldnn {
     }
 
     template<class T, class U,
-        class = std::enable_if_t<std::is_arithmetic_v<U>>>
+        class = typename std::enable_if<std::is_arithmetic<U>::value>::type>
     auto operator/(const vector<T>& l, U r)
         -> vector<T>
     {
@@ -295,9 +296,10 @@ namespace ldnn {
     }
 
     template<class T, class IdxRange,
-        class = std::enable_if_t<
-            std::is_integral_v<typename std::decay_t<IdxRange>::value_type>>
-        >
+        class = typename std::enable_if<
+            std::is_integral<typename std::decay<IdxRange>::type::value_type>::value
+        >::type
+    >
     auto select_dimensions(const vector<T>& vec, IdxRange&& dims)
         -> vector<T>
     {
@@ -311,13 +313,14 @@ namespace ldnn {
     auto select_dimensions(const vector<T>& vec, std::initializer_list<I> dims)
         -> vector<T>
     {
-        return select_dimensions(vec, std::vector(dims));
+        return select_dimensions(vec, std::vector<I>(dims));
     }
 
     template<class T, class IdxRange,
-        class = std::enable_if_t<
-            std::is_integral_v<typename std::decay_t<IdxRange>::value_type>>
-        >
+        class = typename std::enable_if<
+            std::is_integral<typename std::decay<IdxRange>::type::value_type>::value
+        >::type
+    >
     auto select_dimensions(const std::vector<vector<T>>& vecs, IdxRange&& dims)
     {
         auto result = std::vector<vector<T>>{};
@@ -330,7 +333,7 @@ namespace ldnn {
     auto select_dimensions(const std::vector<vector<T>>& vecs,
         std::initializer_list<I> dims)
     {
-        return select_dimensions(vecs, std::vector(dims));
+        return select_dimensions(vecs, std::vector<I>(dims));
     }
 
 } // namespace ldnn

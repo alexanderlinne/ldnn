@@ -1,9 +1,15 @@
 #pragma once
 
 #include <iosfwd>
-#include <string_view>
 
-namespace util::iterator {
+#ifdef __cpp_lib_string_view
+#include <string_view>
+#else
+#include <string>
+#endif
+
+namespace util {
+namespace iterator {
 
     template<class T, class CharT = char, class Traits = std::char_traits<CharT>>
     class ostream_joiner
@@ -19,18 +25,22 @@ namespace util::iterator {
         using traits_type = Traits;
         using ostream_type = std::basic_ostream<CharT, Traits>;
 
+#ifdef __cpp_lib_string_view
         using string_view_type = std::basic_string_view<CharT>;
+#else
+        using string_view_type = std::basic_string<CharT>;
+#endif
 
     public:
-        ostream_joiner(ostream_type& stream, string_view_type delimiter)
+        ostream_joiner(ostream_type& stream, const string_view_type& delimiter)
             : ostream_joiner(stream, delimiter, "", "")
         {}
 
         ostream_joiner(
             ostream_type& stream,
-            string_view_type delimiter,
-            string_view_type start,
-            string_view_type end
+            const string_view_type& delimiter,
+            const string_view_type& start,
+            const string_view_type& end
         )
             : stream(stream), delimiter(delimiter), start(start), end(end)
         {}
@@ -81,4 +91,5 @@ namespace util::iterator {
         string_view_type end;
     };
 
-} // namespace util::iterator
+} // namespace iterator
+} // namespace util

@@ -8,7 +8,8 @@ namespace ldnn {
 
 template<class T = double>
 class network {
-    static_assert(std::is_floating_point_v<T>);
+    static_assert(std::is_floating_point<T>::value,
+        "T has to be a floating-point type");
 
 public:
     struct classification {
@@ -96,11 +97,13 @@ public:
     }
 
     template<class Range,
-        class = std::enable_if<
-            std::is_convertible_v<
-                typename std::decay_t<Range>::value_type,
+        class = typename std::enable_if<
+            std::is_convertible<
+                typename std::decay<Range>::type::value_type,
                 classification
-            >>>
+            >::value
+        >::type
+    >
     void gradient_descent(Range&& rng) {
         util::for_each(rng, [&](auto& c) { gradient_descent(c); });
     }
@@ -110,11 +113,13 @@ public:
     }
 
     template<class Range,
-        class = std::enable_if<
-            std::is_convertible_v<
-                typename std::decay_t<Range>::value_type,
+        class = typename std::enable_if<
+            std::is_convertible<
+                typename std::decay<Range>::type::value_type,
                 classification
-            >>>
+            >::value
+        >::type
+    >
     T quadratic_error(Range&& data) {
         auto error = std::vector<T>{};
         util::transform(data, std::back_inserter(error),

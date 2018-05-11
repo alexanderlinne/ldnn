@@ -1,8 +1,14 @@
 #include <iostream>
 #include <random>
 
-#include <opencv2/core.hpp>
+#define USE_OPENCV_GUI 0
+
+#if USE_OPENCV_GUI
 #include <opencv2/highgui.hpp>
+#endif
+
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <chrono>
 
 #include "ldnn/network.hpp"
@@ -40,7 +46,12 @@ auto show_result(ldnn::network<T> network,
         }
     }
 
+#ifdef __cpp_structured_bindings
     auto [min, max] = util::minmax(clf);
+#else
+    T min, max;
+    std::tie(min, max) = util::minmax(clf);
+#endif
     auto image = cv::Mat(image_size, CV_8UC1);
     for (int y : indices(image_size.height)) {
         for (int x : indices(image_size.width)) {
@@ -49,8 +60,10 @@ auto show_result(ldnn::network<T> network,
         }
     }
 
+#if USE_OPENCV_GUI
     cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
     cv::imshow("Display window", image);
+#endif
     cv::imwrite("result.png", image);
 }
 
@@ -66,7 +79,12 @@ int main() {
     std::cout << "initializing...\r" << std::flush;
     auto network = ldnn::network<double>(4, 4, 5, examples, gen);
 
+#if __has_cpp_attribute(maybe_unused)
     for (auto step [[maybe_unused]] : indices(10)) {
+#else
+    for (auto step : indices(10)) {
+        (void)step;
+#endif
         util::shuffle(examples, gen);
         network.gradient_descent(examples);
     }
@@ -81,5 +99,7 @@ int main() {
                   std::chrono::system_clock::now() - start_time).count()
               << "ms)\n";
 
+#if USE_OPENCV_GUI
     while (cv::waitKey(0) != 'c');
+#endif
 }

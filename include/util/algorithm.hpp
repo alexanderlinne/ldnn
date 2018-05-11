@@ -75,8 +75,13 @@ namespace util {
 
     template<class Range>
     auto minmax(Range&& rng) {
+#ifdef __cpp_structured_bindings
         auto [min, max] = minmax_element(std::forward<Range>(rng));
-        return std::pair{*min, *max};
+#else
+        decltype(begin(std::declval<Range>())) min, max;
+        std::tie(min, max) = minmax_element(std::forward<Range>(rng));
+#endif
+        return std::make_pair(*min, *max);
     }
 
     template<class Range, class URBG>
@@ -94,22 +99,40 @@ namespace util {
 
     // helper functions
 
+#ifdef __cpp_fold_expressions
+
     template<class... T>
     auto sum(T&&... v)
     {
         return (std::forward<T>(v) + ...);
     }
 
+    template<class... T>
+    auto multiply(T&&... v)
+    {
+        return (std::forward<T>(v) * ...);
+    }
+
+#else
+
+    template<class T, class U>
+    auto sum(T&& a, U&& b)
+    {
+        return std::forward<T>(a) + std::forward<U>(b);
+    }
+
+    template<class T, class U>
+    auto multiply(T&& a, U&& b)
+    {
+        return std::forward<T>(a) * std::forward<U>(b);
+    }
+
+#endif
+
     template<class T>
     auto square(const T& v)
     {
         return v * v;
-    }
-
-    template<class... Ts>
-    auto multiply(const Ts&... v)
-    {
-        return (v * ...);
     }
 
     template<class T>
