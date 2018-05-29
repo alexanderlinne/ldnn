@@ -77,7 +77,9 @@ int main() {
     auto examples = create_square<double>(1500, 4, gen);
 
     std::cout << "initializing...\r" << std::flush;
-    auto network = ldnn::network<double>(4, 4, 5, examples, gen);
+    auto network = ldnn::network<double>(
+        ldnn::network<double>::config_t{4, 4, 5, 100},
+        examples, gen);
 
 #if __has_cpp_attribute(maybe_unused)
     for (auto step [[maybe_unused]] : indices(10)) {
