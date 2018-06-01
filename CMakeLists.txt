@@ -18,15 +18,6 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 list(APPEND LIBRARIES Threads::Threads)
 
-# add OpenCV to the project
-if (DEFINED ENV{OPENCV_DIR})
-    set(OpenCV_DIR $ENV{OPENCV_DIR})
-endif()
-set(OpenCV_STATIC OFF)
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
-list(APPEND LIBRARIES ${OpenCV_LIBS})
-
 set(SOURCE_FILES
     src/main.cpp
 )

@@ -1,107 +1,112 @@
+#include <chrono>
 #include <iostream>
 #include <random>
+#include <regex>
+#include <string>
 
-#define USE_OPENCV_GUI 0
+#include "ldnn/data.hpp"
 
-#if USE_OPENCV_GUI
-#include <opencv2/highgui.hpp>
-#endif
+using namespace std::literals;
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <chrono>
+struct config_t {
+    // The name of the csv that contains the input data
+    std::string filename;
 
-#include "ldnn/network.hpp"
+    // The dimension of the input vectors that contains the classification for
+    // that vector.
+    size_t classification_dimension;
+
+    // The dimensions of the input vector the network should learn on (ignoring
+    // the classification dimension)
+    std::vector<size_t> dimensions;
+
+    // Number of cross validation iterations.
+    size_t iterations;
+
+    // Number of gradient descent iterations.
+    size_t gradient_iterations;
+};
 
 template<class T, class URBG>
-auto create_square(size_t count, T size, URBG&& gen)
+auto random_partition(std::vector<T>& vec, double p, URBG&& gen)
+    -> std::pair<std::vector<T>, std::vector<T>>
 {
-    using classification = ldnn::network<double>::classification;
-
-    std::uniform_real_distribution<> dis(-size / 2, size / 2);
-    auto create_example = [&]() {
-        auto v = ldnn::vector<double>{dis(gen), dis(gen)};
-        return classification{v,
-            std::abs(v[0]) <= size / 4 && std::abs(v[1]) <= size / 4};
-    };
-
-    auto result = std::vector<classification>(count);
-    util::generate(result, create_example);
-    return result;
+    util::shuffle(vec, gen);
+    auto split_at = std::next(begin(vec),
+        static_cast<size_t>(0.5 * vec.size()));
+    return std::make_pair(
+        std::vector<T>(begin(vec), split_at),
+        std::vector<T>(split_at, end(vec)));
 }
 
-template<class T>
-auto show_result(ldnn::network<T> network,
-    cv::Rect_<T> index_space, cv::Size image_size) {
-
-    auto clf = std::vector<T>(image_size.width * image_size.height);
-    for (auto y : indices(image_size.height)) {
-        for (auto x : indices(image_size.width)) {
-            clf[x + y * image_size.width] = network.classify(
-                ldnn::vector<double>{
-                    index_space.x +
-                        x / static_cast<T>(image_size.width) * index_space.width,
-                    index_space.y +
-                        y / static_cast<T>(image_size.height) * index_space.height});
-        }
-    }
-
-#ifdef __cpp_structured_bindings
-    auto [min, max] = util::minmax(clf);
-#else
-    T min, max;
-    std::tie(min, max) = util::minmax(clf);
-#endif
-    auto image = cv::Mat(image_size, CV_8UC1);
-    for (int y : indices(image_size.height)) {
-        for (int x : indices(image_size.width)) {
-            image.at<uchar>(y, x) = static_cast<uchar>(
-                255.0 * (clf[x + y * image_size.width] - min) / (max - min));
-        }
-    }
-
-#if USE_OPENCV_GUI
-    cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
-    cv::imshow("Display window", image);
-#endif
-    cv::imwrite("result.png", image);
-}
-
-int main() {
-    auto start_time = std::chrono::system_clock::now();
+int ldnn_main(int argc, char *argv[]) {
+    auto config = config_t{};
 
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::cout << "creating data...\r" << std::flush;
-    auto examples = create_square<double>(1500, 4, gen);
-
     std::cout << "initializing...\r" << std::flush;
-    auto network = ldnn::network<double>(
-        ldnn::network<double>::config_t{4, 4, 5, 100},
-        examples, gen);
 
-#if __has_cpp_attribute(maybe_unused)
-    for (auto step [[maybe_unused]] : indices(10)) {
-#else
-    for (auto step : indices(10)) {
-        (void)step;
-#endif
-        util::shuffle(examples, gen);
-        network.gradient_descent(examples);
+    // Load and parse the input data.
+    auto data = ldnn::read_csv_file<double>(config.filename, '\t');
+    auto examples = ldnn::dimension_to_classification(
+        data, config.classification_dimension);
+    for (auto& cl : examples) {
+        cl.vec = ldnn::select_dimensions(cl.vec, config.dimensions);
     }
 
-    std::cout << "rendering...\r" << std::flush;
-    show_result(network,
-        cv::Rect_<double>(-2., -2., 4., 4.),
-        cv::Size(1000, 1000));
+    // Normalize the input data.
+    for (auto dim : indices<size_t>(examples[0].vec.rank().value)) {
+        auto minmax = util::minmax(examples,
+            [&](auto& c) { return c.vec[dim]; });
+        for (auto& c : examples) {
+            c.vec[dim] -= minmax.first;
+            c.vec[dim] /= minmax.second - minmax.first;
+        }
+    }
 
-    std::cout << "done! ("
-              << std::chrono::duration_cast<std::chrono::milliseconds>(
-                  std::chrono::system_clock::now() - start_time).count()
-              << "ms)\n";
+    for (auto iteration : indices(config.iterations)) {
+        auto start_time = std::chrono::system_clock::now();
 
-#if USE_OPENCV_GUI
-    while (cv::waitKey(0) != 'c');
-#endif
+        auto output = std::to_string(iteration + 1) + "/"
+            + std::to_string(config.iterations) + ": ";
+        std::cout << output << "\r" << std::flush;
+
+        auto partitioning = random_partition(examples, 0.5, gen);
+        auto network = ldnn::network<double>(
+            ldnn::network<double>::read_config(config_filename),
+            partitioning.first, gen);
+        for (auto step : indices(config.gradient_iterations)) {
+            std::cout << output << step << "/"
+                      << config.gradient_iterations << "\r" << std::flush;
+            util::shuffle(partitioning.first, gen);
+            network.gradient_descent(partitioning.first);
+        }
+
+        auto correct = size_t{0};
+        for (auto& c : partitioning.second) {
+            if ((network.classify(c.vec) > 0.5) == c.positive) {
+                correct++;
+            }
+        }
+        std::cout << 100.0 * correct / partitioning.second.size()
+                  << "% correctly classified! ("
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now() - start_time).count()
+                  << "ms)\n";
+    }
+
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    try {
+        return ldnn_main(argc, argv);
+    }
+    catch (const std::exception& e) {
+        std::cout << "ERROR: " << e.what() << "\n";
+    }
+    catch(...) {
+        std::cout << "an unexpected error occurred" << "\n";
+    }
 }

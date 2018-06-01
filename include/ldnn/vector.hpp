@@ -336,4 +336,23 @@ namespace ldnn {
         return select_dimensions(vecs, std::vector<I>(dims));
     }
 
+    template<class T, class Idx>
+    auto remove_dimension(const vector<T>& vec, Idx dim)
+        -> vector<T>
+    {
+        if (dim < 0 || dim > vec.rank().value) {
+            throw std::invalid_argument{"dimension out of range"};
+        }
+
+        auto result = vector<T>{rank_t{vec.rank().value - 1}};
+        for (auto i = Idx{0}, j = Idx{0}; i < vec.rank(); ++i) {
+            if (i == dim) {
+                continue;
+            }
+            result[j] = vec[i];
+            j++;
+        }
+        return result;
+    };
+
 } // namespace ldnn
