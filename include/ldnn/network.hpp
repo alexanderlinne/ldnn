@@ -12,18 +12,46 @@ class network {
         "T has to be a floating-point type");
 
 public:
+    struct config_t {
+        // Number of polytopes.
+        size_t polytope_count;
+
+        // Maximum number of halfspaces per polytope.
+        size_t max_halfspaces;
+
+        // Alpha parameter of the network.
+        T alpha;
+
+        // Number of iterations for the kmeans algorithm.
+        size_t kmeans_iterations;
+    };
+
     struct classification {
         vector<T> vec;
         bool positive;
     };
 
 public:
+    static config_t read_config(const std::string& filename) {
+        auto ini_config = INIReader{filename};
+        auto config = config_t{};
+
+        config.polytope_count =
+            ini_config.GetInteger("network", "polytope_count", 0);
+        config.max_halfspaces =
+            ini_config.GetInteger("network", "max_halfspaces", 0);
+        config.alpha =
+            ini_config.GetReal("network", "alpha", 0.0);
+        config.kmeans_iterations =
+            ini_config.GetInteger("network", "kmeans_iterations", 0);
+
+        return config;
+    }
+
+public:
     template<class URBG>
-    network(size_t polytope_count, size_t max_halfspaces, T alpha,
-        const std::vector<classification>& examples, URBG&& gen)
-        : alpha(alpha),
-        polytope_count(polytope_count),
-        max_halfspaces(max_halfspaces)
+    network(config_t config, const std::vector<classification>& examples, URBG&& gen)
+        : config(config)
     {
         if (examples.size() == 0)
             throw std::invalid_argument("examples.size() == 0");
@@ -38,11 +66,11 @@ public:
         }
 
         // Allocate memory.
-        weight.resize(polytope_count);
-        bias.resize(polytope_count);
-        for (auto i : indices(polytope_count)) {
-            weight[i].resize(max_halfspaces, vector<T>(rank));
-            bias[i].resize(max_halfspaces);
+        weight.resize(config.polytope_count);
+        bias.resize(config.polytope_count);
+        for (auto i : indices(config.polytope_count)) {
+            weight[i].resize(config.max_halfspaces, vector<T>(rank));
+            bias[i].resize(config.max_halfspaces);
         }
 
         // Initialize the network.
@@ -55,8 +83,10 @@ public:
                 neg_examples.push_back(c.vec);
             }
         });
-        auto pos_ctrds = kmeans(pos_examples, polytope_count, gen);
-        auto neg_ctrds = kmeans(neg_examples, max_halfspaces, gen);
+        auto pos_ctrds = kmeans(pos_examples,
+            config.polytope_count, gen, config.kmeans_iterations);
+        auto neg_ctrds = kmeans(neg_examples,
+            config.max_halfspaces, gen, config.kmeans_iterations);
         for (auto i : indices(pos_ctrds.size())) {
             for (auto j : indices(neg_ctrds.size())) {
                 weight[i][j] = normalize(pos_ctrds[i] - neg_ctrds[j]);
@@ -69,7 +99,7 @@ public:
         -> T
     {
         auto result = T{1};
-        for (auto i : indices(polytope_count)) {
+        for (auto i : indices(config.polytope_count)) {
             result *= T{1} - polytope(i, v);
         }
 
@@ -77,18 +107,18 @@ public:
     }
 
     void gradient_descent(const classification& c) {
-        for (auto i : indices(polytope_count)) {
-            for (auto j : indices(max_halfspaces)) {
+        for (auto i : indices(config.polytope_count)) {
+            for (auto j : indices(config.max_halfspaces)) {
                 auto diff = T{2} * error(c);
 
-                for (auto r : indices(polytope_count)) {
+                for (auto r : indices(config.polytope_count)) {
                     if (i != r) {
                         diff *= (T{1} - polytope(r, c.vec));
                     }
                 }
 
                 diff *= polytope(i, c.vec) * (T{1} - halfspace(i, j, c.vec));
-                diff *= alpha;
+                diff *= config.alpha;
 
                 weight[i][j] = weight[i][j] - (diff * c.vec);
                 bias[i][j] -= diff;
@@ -134,7 +164,7 @@ private:
 
     template<class URBG>
     static auto kmeans(std::vector<vector<T>> data,
-        size_t k, URBG&& gen, size_t iterations = 100)
+        size_t k, URBG&& gen, size_t iterations = 10)
         -> std::vector<vector<T>>
     {
         // Shuffle the input vector.
@@ -189,7 +219,7 @@ private:
         -> T
     {
         auto result = T{1};
-        for (auto j : indices(max_halfspaces)) {
+        for (auto j : indices(config.max_halfspaces)) {
             result *= halfspace(i, j, v);
         }
         return result;
@@ -197,9 +227,7 @@ private:
 
 private:
 
-    T alpha;
-    size_t polytope_count;
-    size_t max_halfspaces;
+    config_t config;
     std::vector<std::vector<vector<T>>> weight;
     std::vector<std::vector<T>> bias;
 };

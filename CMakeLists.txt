@@ -11,23 +11,17 @@ set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_CXX_FLAGS "-std=c++14 -O3 -march=native -Wall")
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR}/range-v3/include)
+include_directories(${PROJECT_SOURCE_DIR}/third-party/cxxopts/include)
+include_directories(${PROJECT_SOURCE_DIR}/third-party/inih/cpp)
 
 # add pthread
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 list(APPEND LIBRARIES Threads::Threads)
 
-# add OpenCV to the project
-if (DEFINED ENV{OPENCV_DIR})
-    set(OpenCV_DIR $ENV{OPENCV_DIR})
-endif()
-set(OpenCV_STATIC OFF)
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
-list(APPEND LIBRARIES ${OpenCV_LIBS})
-
 set(SOURCE_FILES
+    third-party/inih/ini.c
+    third-party/inih/cpp/INIReader.cpp
     src/main.cpp
 )
 

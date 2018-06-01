@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iterator>
 #include <numeric>
+#include <tuple>
 
 using std::begin;
 using std::end;
@@ -48,6 +49,12 @@ namespace util {
         std::fill(begin(rng), end(rng), value);
     }
 
+    template<class Range, class T>
+    auto find(Range&& rng, const T& value)
+    {
+        return std::find(begin(rng), end(rng), value);
+    }
+
     template<class Range, class UnaryFunction>
     auto for_each(Range&& rng, UnaryFunction f)
         -> UnaryFunction
@@ -84,6 +91,12 @@ namespace util {
         return std::make_pair(*min, *max);
     }
 
+    template<class Range, class UnaryPredicate>
+    auto remove_if(Range&& rng, UnaryPredicate p)
+    {
+        return remove_if(begin(rng), end(rng), p);
+    };
+
     template<class Range, class URBG>
     void shuffle(Range&& rng, URBG&& g)
     {
@@ -95,6 +108,19 @@ namespace util {
         -> OutputIt
     {
         return std::transform(begin(rng), end(rng), d_first, unary_op);
+    }
+
+    template<class Range, class Proj>
+    auto minmax(Range&& rng, Proj&& proj) {
+        auto tmp = std::vector<decltype(proj(*begin(rng)))>{};
+        util::transform(rng, std::back_inserter(tmp), std::forward<Proj>(proj));
+#ifdef __cpp_structured_bindings
+        auto [min, max] = minmax_element(tmp);
+#else
+        decltype(begin(tmp)) min, max;
+        std::tie(min, max) = minmax_element(tmp);
+#endif
+        return std::make_pair(*min, *max);
     }
 
     // helper functions
