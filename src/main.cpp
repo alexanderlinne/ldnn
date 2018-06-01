@@ -4,6 +4,9 @@
 #include <regex>
 #include <string>
 
+#include <cxxopts.hpp>
+#include <INIReader.h>
+
 #include "ldnn/data.hpp"
 
 using namespace std::literals;
@@ -39,8 +42,51 @@ auto random_partition(std::vector<T>& vec, double p, URBG&& gen)
         std::vector<T>(split_at, end(vec)));
 }
 
-int ldnn_main(int argc, char *argv[]) {
+auto read_config(const std::string& filename)
+    -> config_t
+{
+    auto ini_config = INIReader{filename};
+    if (ini_config.ParseError() < 0) {
+        throw std::invalid_argument{filename + " couldn't be opened or parsed!"};
+    }
     auto config = config_t{};
+
+    config.filename = ini_config.Get("data", "filename", "");
+    config.classification_dimension = static_cast<size_t>(
+        ini_config.GetInteger("data", "classification_dimension", 0));
+
+    auto dim_str = ini_config.Get("data", "dimensions", "");
+    if (!std::regex_match(dim_str, std::regex{"\\[([0-9]+,)+[0-9]+\\]"}))
+        throw std::invalid_argument{"The value " + dim_str
+            + "is not valid for parameter data.dimensions!"};
+    auto r = std::regex{"[0-9]+"};
+    std::for_each(
+        std::sregex_iterator{dim_str.begin(), dim_str.end(), r},
+        std::sregex_iterator{},
+        [&](auto& match) {
+            config.dimensions.push_back(std::stoul(match.str()));
+        });
+
+    config.iterations = static_cast<size_t>(
+        ini_config.GetInteger("training", "iterations", 0));
+    config.gradient_iterations = static_cast<size_t>(
+        ini_config.GetInteger("training", "gradient_iterations", 0));
+
+    return config;
+}
+
+int ldnn_main(int argc, char *argv[]) {
+    auto cmdopt = cxxopts::Options{
+        "ldnn", "C++ implementation of a Logistic Disjunctive Normal Network"};
+    cmdopt.add_options()
+        ("c,config", "ini config filename", cxxopts::value<std::string>());
+    auto options = cmdopt.parse(argc, argv);
+    auto config_filename = "ldnn.ini"s;
+    if (options.count("config") > 0) {
+        config_filename = options["config"].as<std::string>();
+    }
+
+    auto config = read_config(config_filename);
 
     std::random_device rd;
     std::mt19937 gen(rd());

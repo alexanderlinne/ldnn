@@ -32,6 +32,23 @@ public:
     };
 
 public:
+    static config_t read_config(const std::string& filename) {
+        auto ini_config = INIReader{filename};
+        auto config = config_t{};
+
+        config.polytope_count =
+            ini_config.GetInteger("network", "polytope_count", 0);
+        config.max_halfspaces =
+            ini_config.GetInteger("network", "max_halfspaces", 0);
+        config.alpha =
+            ini_config.GetReal("network", "alpha", 0.0);
+        config.kmeans_iterations =
+            ini_config.GetInteger("network", "kmeans_iterations", 0);
+
+        return config;
+    }
+
+public:
     template<class URBG>
     network(config_t config, const std::vector<classification>& examples, URBG&& gen)
         : config(config)
